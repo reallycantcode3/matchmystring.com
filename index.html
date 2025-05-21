@@ -1,0 +1,621 @@
+
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MatchMyString.ai</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.20.15/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen font-poppins">
+  <div class="relative min-h-screen">
+    <div class="bg-gradient-to-r from-blue-600 to-green-500 text-white py-16 px-4 text-center">
+      <h1 class="text-4xl md:text-5xl font-bold mb-2">MatchMyString.ai</h1>
+      <p class="text-lg md:text-xl italic font-semibold mb-4">For Players, By Players</p>
+      <p class="text-base md:text-lg">Find the perfect Yonex string to elevate your badminton game!</p>
+    </div>
+
+    <div class="container mx-auto px-4 py-8 -mt-8">
+      <div id="root" class="max-w-4xl mx-auto"></div>
+    </div>
+
+    <div class="absolute inset-0 opacity-10 pointer-events-none">
+      <div class="w-full h-full bg-repeat" style={{ backgroundImage: `url('data:image/svg+xml,%3Csvg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath d="M20 10L30 20L20 30L10 20z" fill="%239CA3AF" fill-rule="evenodd"/%3E%3C/svg%3E')` }}></div>
+    </div>
+  </div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    // String recommendation logic with all Yonex strings
+    const stringDatabase = {
+      beginner: {
+        control: {
+          brand: "Yonex",
+          name: "BG65 Ti",
+          gauge: "0.70mm",
+          description: "A thick string with a titanium coating for enhanced control, ideal for beginners learning precise shot placement.",
+          racketFit: "Suits even-balanced or head-light rackets, offering a forgiving feel for control-focused shots."
+        },
+        power: {
+          brand: "Yonex",
+          name: "BG65",
+          gauge: "0.70mm",
+          description: "A durable, multifilament string with good repulsion, perfect for beginners seeking power in smashes and clears.",
+          racketFit: "Pairs well with head-heavy rackets, boosting power for aggressive shots."
+        },
+        durability: {
+          brand: "Yonex",
+          name: "Nanogy 95",
+          gauge: "0.69mm",
+          description: "A durable string with carbon nanotube technology, ideal for beginners who need strings that last.",
+          racketFit: "Compatible with any racket, for long-lasting performance."
+        },
+      },
+      recreational: {
+        control: {
+          brand: "Yonex",
+          name: "Skyarc",
+          gauge: "0.69mm",
+          description: "Designed for high clears and control, perfect for recreational players focusing on defensive play.",
+          racketFit: "Ideal for even-balanced rackets, balancing control and flexibility."
+        },
+        power: {
+          brand: "Yonex",
+          name: "BG80",
+          gauge: "0.68mm",
+          description: "A high-repulsion string for increased power, great for recreational players aiming for stronger smashes.",
+          racketFit: "Suits head-heavy rackets, enhancing smash power."
+        },
+        durability: {
+          brand: "Yonex",
+          name: "BG65",
+          gauge: "0.70mm",
+          description: "A durable string with excellent longevity, ideal for recreational players who play frequently.",
+          racketFit: "Works well with most rackets, for reliable performance."
+        },
+      },
+      intermediate: {
+        control: {
+          brand: "Yonex",
+          name: "NBG98",
+          gauge: "0.66mm",
+          description: "A textured string for superior spin and control, perfect for intermediate players with refined technique.",
+          racketFit: "Best for head-light or even-balanced rackets, enhancing precision for net play and drops."
+        },
+        power: {
+          brand: "Yonex",
+          name: "BG80 Power",
+          gauge: "0.68mm",
+          description: "An enhanced string with superior repulsion for aggressive, power-driven play, ideal for intermediate players.",
+          racketFit: "Ideal for head-heavy or even-balanced rackets, amplifying power for smashes."
+        },
+        durability: {
+          brand: "Yonex",
+          name: "Nanogy 95",
+          gauge: "0.69mm",
+          description: "A durable string with excellent power and feel, balancing longevity and performance for intermediate players.",
+          racketFit: "Works with even-balanced or head-heavy rackets, offering versatility."
+        },
+      },
+      advanced: {
+        control: {
+          brand: "Yonex",
+          name: "Aerobite",
+          gauge: "0.67mm (mains), 0.61mm (crosses)",
+          description: "A hybrid string combining thicker mains and thinner crosses for spin and control, ideal for advanced players.",
+          racketFit: "Perfect for head-light or even-balanced rackets, maximizing control in fast rallies."
+        },
+        power: {
+          brand: "Yonex",
+          name: "Exbolt 65",
+          gauge: "0.65mm",
+          description: "A high-repulsion string with excellent power, designed for advanced players who prioritize smashes.",
+          racketFit: "Suits head-heavy or even-balanced rackets, enhancing smash velocity."
+        },
+        durability: {
+          brand: "Yonex",
+          name: "Aerobite Boost",
+          gauge: "0.72mm (mains), 0.61mm (crosses)",
+          description: "A hybrid string with durable mains and thin crosses for enhanced control and longevity, suited for advanced players.",
+          racketFit: "Great for high-performance rackets, ensuring reliability."
+        },
+      },
+      professional: {
+        control: {
+          brand: "Yonex",
+          name: "BG66 Ultimax",
+          gauge: "0.65mm",
+          description: "A thin, high-control string favored by pros for its repulsion and precision, ideal for high-tension setups.",
+          racketFit: "Best for head-light or even-balanced rackets, offering pinpoint accuracy."
+        },
+        power: {
+          brand: "Yonex",
+          name: "Exbolt 68",
+          gauge: "0.68mm",
+          description: "A powerful string with high repulsion and durability, perfect for pros dominating with smashes.",
+          racketFit: "Ideal for head-heavy or even-balanced rackets, maximizing smash power."
+        },
+        durability: {
+          brand: "Yonex",
+          name: "Nanogy 99",
+          gauge: "0.69mm",
+          description: "A multifilament string with a rough texture for enhanced control and durability, suited for pros in intense matches.",
+          racketFit: "Works with any professional-grade racket, for lasting performance."
+        },
+      },
+    };
+
+    // Comprehensive racket list with subcategories
+    const rackets = [
+      { brand: "Yonex", model: "Astrox 99 Play", balance: "head-heavy" },
+      { brand: "Yonex", model: "Astrox 99 Game", balance: "head-heavy" },
+      { brand: "Yonex", model: "Astrox 100 ZZ", balance: "head-heavy" },
+      { brand: "Yonex", model: "Astrox 88D Pro", balance: "head-heavy" },
+      { brand: "Yonex", model: "Astrox 88S Pro", balance: "head-heavy" },
+      { brand: "Yonex", model: "Astrox 77 Pro", balance: "head-heavy" },
+      { brand: "Yonex", model: "Nanoflare 1000 Play", balance: "head-light" },
+      { brand: "Yonex", model: "Nanoflare 1000 Z", balance: "head-light" },
+      { brand: "Yonex", model: "Nanoflare 800 Pro", balance: "head-light" },
+      { brand: "Yonex", model: "Nanoflare 700 Play", balance: "head-light" },
+      { brand: "Yonex", model: "Arcsaber 11 Play", balance: "even-balanced" },
+      { brand: "Yonex", model: "Arcsaber 11 Pro", balance: "even-balanced" },
+      { brand: "Yonex", model: "Arcsaber 7 Tour", balance: "even-balanced" },
+      { brand: "Yonex", model: "Duora 10", balance: "even-balanced" },
+      { brand: "Yonex", model: "Voltric Z-Force II", balance: "head-heavy" },
+      { brand: "Yonex", model: "Voltric LD-Force", balance: "head-heavy" },
+      { brand: "Yonex", model: "Nanoray 900", balance: "head-light" },
+      { brand: "Yonex", model: "Nanoray Z-Speed", balance: "head-light" },
+      { brand: "Yonex", model: "Astrox 22F", balance: "head-heavy" },
+      { brand: "Yonex", model: "Astrox Nextage", balance: "head-heavy" },
+      { brand: "Victor", model: "Auraspeed 90K", balance: "head-light" },
+      { brand: "Victor", model: "Auraspeed 100X", balance: "head-light" },
+      { brand: "Victor", model: "Auraspeed ARS-1JR-O", balance: "head-light" },
+      { brand: "Victor", model: "Auraspeed Hypersonic", balance: "head-light" },
+      { brand: "Victor", model: "Jetspeed S 12 II", balance: "head-light" },
+      { brand: "Victor", model: "Thruster K 9900", balance: "head-heavy" },
+      { brand: "Victor", model: "Bravesword 12", balance: "even-balanced" },
+      { brand: "Victor", model: "Thruster Ryuga", balance: "head-heavy" },
+      { brand: "Victor", model: "Thruster Falcon Claw", balance: "head-heavy" },
+      { brand: "Victor", model: "Hypernano X 900", balance: "even-balanced" },
+      { brand: "Victor", model: "Light Fighter 30", balance: "head-light" },
+      { brand: "Victor", model: "DriveX 9X", balance: "even-balanced" },
+      { brand: "Li-Ning", model: "Turbo Charging 80", balance: "head-heavy" },
+      { brand: "Li-Ning", model: "Windstorm 72", balance: "head-light" },
+      { brand: "Li-Ning", model: "Aeronaut 9000", balance: "head-light" },
+      { brand: "Li-Ning", model: "Blade X 800", balance: "even-balanced" },
+      { brand: "Li-Ning", model: "Halbertec 8000", balance: "even-balanced" },
+      { brand: "Li-Ning", model: "3D Calibar 900", balance: "head-heavy" },
+      { brand: "Li-Ning", model: "Tectonic 7", balance: "head-heavy" },
+    ];
+
+    // Comprehensive Yonex string list for disliked strings
+    const strings = [
+      { brand: "Yonex", name: "BG65" },
+      { brand: "Yonex", name: "BG65 Ti" },
+      { brand: "Yonex", name: "BG66 Ultimax" },
+      { brand: "Yonex", name: "BG80" },
+      { brand: "Yonex", name: "BG80 Power" },
+      { brand: "Yonex", name: "Aerosonic" },
+      { brand: "Yonex", name: "NBG98" },
+      { brand: "Yonex", name: "Nanogy 95" },
+      { brand: "Yonex", name: "Nanogy 99" },
+      { brand: "Yonex", name: "Exbolt 63" },
+      { brand: "Yonex", name: "Exbolt 65" },
+      { brand: "Yonex", name: "Exbolt 68" },
+      { brand: "Yonex", name: "Skyarc" },
+      { brand: "Yonex", name: "Aerobite" },
+      { brand: "Yonex", name: "Aerobite Boost" },
+    ];
+
+    const QuizApp = () => {
+      const [step, setStep] = useState(0);
+      const [showIntro, setShowIntro] = useState(true);
+      const [formData, setFormData] = useState({
+        racket: "",
+        dislikedStrings: [],
+        level: "",
+        tension: "",
+        priority: "",
+      });
+      const [recommendations, setRecommendations] = useState(null);
+      const [showGuide, setShowGuide] = useState(true);
+
+      const handleInputChange = (key, value) => {
+        setFormData({ ...formData, [key]: value });
+      };
+
+      const handleDislikedStringToggle = (string) => {
+        const currentDisliked = formData.dislikedStrings;
+        if (currentDisliked.includes(string)) {
+          handleInputChange("dislikedStrings", currentDisliked.filter(s => s !== string));
+        } else {
+          handleInputChange("dislikedStrings", [...currentDisliked, string]);
+        }
+      };
+
+      const getRecommendations = () => {
+        const { level, priority, racket, tension, dislikedStrings } = formData;
+
+        // Primary recommendation (based on user's priority)
+        let primaryRec = stringDatabase[level]?.[priority];
+
+        // Secondary recommendation (complementary priority)
+        const secondaryPriority = priority === "control" ? "power" : priority === "power" ? "control" : "control";
+        let secondaryRec = stringDatabase[level]?.[secondaryPriority];
+
+        // Default recommendations if no match
+        if (!primaryRec) {
+          primaryRec = {
+            brand: "Yonex",
+            name: "BG65",
+            gauge: "0.70mm",
+            description: "A versatile all-around string with great durability and control.",
+            racketFit: "Compatible with most rackets, offering a balanced feel."
+          };
+        }
+        if (!secondaryRec) {
+          secondaryRec = {
+            brand: "Yonex",
+            name: "BG80",
+            gauge: "0.68mm",
+            description: "A high-repulsion string for increased power and feel.",
+            racketFit: "Compatible with most rackets, enhancing power."
+          };
+        }
+
+        // Adjust based on racket balance
+        const selectedRacket = rackets.find(r => `${r.brand} ${r.model}` === racket);
+        if (selectedRacket) {
+          const balance = selectedRacket.balance;
+          if (balance === "head-light" && priority === "power") {
+            primaryRec.racketFit = `Optimized for your head-light ${racket}, providing high repulsion for powerful shots despite the lighter head.`;
+            secondaryRec.racketFit = `Complements your head-light ${racket}, offering control for precise shots alongside power.`;
+          } else if (balance === "head-heavy" && priority === "control") {
+            primaryRec.racketFit = `Ideal for your head-heavy ${racket}, offering precision and control to complement its power.`;
+            secondaryRec.racketFit = `Enhances your head-heavy ${racket}, boosting power for aggressive smashes.`;
+          } else if (balance === "even-balanced") {
+            primaryRec.racketFit = `Versatile for your even-balanced ${racket}, enhancing ${priority} for all-court play.`;
+            secondaryRec.racketFit = `Supports your even-balanced ${racket}, adding ${secondaryPriority} for versatile performance.`;
+          } else {
+            primaryRec.racketFit = `Tailored for your ${racket}, supporting ${priority} with excellent performance.`;
+            secondaryRec.racketFit = `Tailored for your ${racket}, supporting ${secondaryPriority} for balanced play.`;
+          }
+        }
+
+        // Adjust for tension and playing level
+        if (tension === "20-24" || tension === "24-26") {
+          if (level === "beginner" || level === "recreational") {
+            primaryRec.description += " Its thicker gauge suits lower tensions for added power and durability.";
+            secondaryRec.description += " Its gauge supports lower tensions, enhancing your game.";
+          }
+        } else if (tension === "28-30" || tension === "30+") {
+          if (level === "advanced" || level === "professional") {
+            primaryRec.description += " Its thinner gauge maximizes control and repulsion at high tensions.";
+            secondaryRec.description += " Its gauge optimizes performance at high tensions.";
+          }
+        }
+
+        // Avoid disliked strings
+        if (dislikedStrings.includes(`${primaryRec.brand} ${primaryRec.name}`)) {
+          primaryRec = stringDatabase[level]?.[secondaryPriority] || primaryRec;
+        }
+        if (dislikedStrings.includes(`${secondaryRec.brand} ${secondaryRec.name}`)) {
+          const fallbackPriority = secondaryPriority === "control" ? "durability" : "control";
+          secondaryRec = stringDatabase[level]?.[fallbackPriority] || secondaryRec;
+        }
+
+        return { primary: primaryRec, secondary: secondaryRec };
+      };
+
+      const nextStep = () => {
+        if (step < questions.length - 1) {
+          setStep(step + 1);
+        } else {
+          setRecommendations(getRecommendations());
+          setStep(step + 1);
+        }
+      };
+
+      const prevStep = () => {
+        if (step > 0) setStep(step - 1);
+      };
+
+      const questions = [
+        {
+          question: "What's your current racket?",
+          input: (
+            <select
+              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+              value={formData.racket}
+              onChange={(e) => handleInputChange("racket", e.target.value)}
+            >
+              <option value="">Select racket</option>
+              <optgroup label="Yonex">
+                {rackets.filter(r => r.brand === "Yonex").map((racket, index) => (
+                  <option key={`yonex-${index}`} value={`${racket.brand} ${racket.model}`}>
+                    {racket.model}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Victor">
+                {rackets.filter(r => r.brand === "Victor").map((racket, index) => (
+                  <option key={`victor-${index}`} value={`${racket.brand} ${racket.model}`}>
+                    {racket.model}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Li-Ning">
+                {rackets.filter(r => r.brand === "Li-Ning").map((racket, index) => (
+                  <option key={`lining-${index}`} value={`${racket.brand} ${racket.model}`}>
+                    {racket.model}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          ),
+          guideText: "Select your racket to match the perfect string!"
+        },
+        {
+          question: "Any strings you dislike? (Select all that apply)",
+          input: (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-gray-300 rounded-lg bg-white shadow-sm">
+              {strings.map((string, index) => (
+                <label key={index} className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded">
+                  <input
+                    type="checkbox"
+                    checked={formData.dislikedStrings.includes(`${string.brand} ${string.name}`)}
+                    onChange={() => handleDislikedStringToggle(`${string.brand} ${string.name}`)}
+                    className="text-blue-500 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">{string.brand} {string.name}</span>
+                </label>
+              ))}
+            </div>
+          ),
+          guideText: "Check any strings you want to avoid."
+        },
+        {
+          question: "What's your playing level?",
+          input: (
+            <select
+              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+              value={formData.level}
+              onChange={(e) => handleInputChange("level", e.target.value)}
+            >
+              <option value="">Select level</option>
+              <option value="beginner">Beginner</option>
+              <option value="recreational">Recreational</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+              <option value="professional">Professional</option>
+            </select>
+          ),
+          guideText: "Your level helps us find a string for your skill."
+        },
+        {
+          question: "What string tension do you prefer? (in lbs)",
+          input: (
+            <select
+              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+              value={formData.tension}
+              onChange={(e) => handleInputChange("tension", e.target.value)}
+            >
+              <option value="">Select tension</option>
+              <option value="20-24">20-24 lbs</option>
+              <option value="24-26">24-26 lbs</option>
+              <option value="26-28">26-28 lbs</option>
+              <option value="28-30">28-30 lbs</option>
+              <option value="30+">30+ lbs</option>
+            </select>
+          ),
+          guideText: "Lower tension for power, higher for control."
+        },
+        {
+          question: "What do you care about most?",
+          input: (
+            <div className="flex flex-col gap-3">
+              {["control", "power", "durability"].map((option) => (
+                <label key={option} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="priority"
+                    value={option}
+                    checked={formData.priority === option}
+                    onChange={(e) => handleInputChange("priority", e.target.value)}
+                    className="text-blue-500 focus:ring-blue-500"
+                  />
+                  <span class="text-gray-700">{option.charAt(0).toUpperCase() + option.slice(1)}</span>
+                </label>
+              ))}
+            </div>
+          ),
+          guideText: "Choose your priority: control, power, or durability."
+        },
+      ];
+
+      return (
+        <div className="bg-white rounded-2xl shadow-xl p-8 md:p-10 relative">
+          {showGuide && (
+            <div className="fixed bottom-4 right-4 bg-gray-100 rounded-lg p-3 animate-float flex items-center shadow-md">
+              <span className="text-xl mr-2">🏸</span>
+              <div className="text-sm text-gray-700">
+                {step < questions.length ? questions[step].guideText : "Check out your string matches!"}
+              </div>
+            </div>
+          )}
+          <button
+            onClick={() => setShowGuide(!showGuide)}
+            className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-sm"
+          >
+            {showGuide ? "Hide Shuttie" : "Show Shuttie"}
+          </button>
+
+          {showIntro && (
+            <div className="animate-fade-in text-center">
+              <h2 className="text-3xl font-bold text-gray-800 mb-4">Ready to Smash Your Game?</h2>
+              <p className="text-lg text-gray-600 mb-6">Answer a few questions to find the ideal Yonex string!</p>
+              <button
+                onClick={() => setShowIntro(false)}
+                className="px-8 py-4 bg-gradient-to-r from-blue-500 to-green-500 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 animate-pulse"
+              >
+                Start Quiz Now!
+              </button>
+            </div>
+          )}
+
+          {!showIntro && (
+            <>
+              <div className="w-full bg-gray-200 rounded-full h-3 mb-8">
+                <div
+                  className="bg-blue-500 h-3 rounded-full transition-all duration-300"
+                  style={{ width: `${((step + 1) / (questions.length + 1)) * 100}%` }}
+                ></div>
+              </div>
+
+              {step < questions.length ? (
+                <div className="animate-fade-in">
+                  <h2 className="text-2xl font-semibold text-gray-800 mb-6">{questions[step].question}</h2>
+                  {questions[step].input}
+                  <div className="flex justify-between mt-8">
+                    <button
+                      onClick={prevStep}
+                      className={`px-6 py-3 rounded-lg text-white font-semibold ${step === 0 ? "bg-gray-300" : "bg-blue-500 hover:bg-blue-600"} transition-all duration-200`}
+                      disabled={step === 0}
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={nextStep}
+                      className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-all duration-200"
+                      disabled={
+                        step === 0 && !formData.racket ||
+                        step === 2 && !formData.level ||
+                        step === 3 && !formData.tension ||
+                        step === 4 && !formData.priority
+                      }
+                    >
+                      {step === questions.length - 1 ? "Get Recommendations" : "Next"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="animate-fade-in">
+                  <h2 className="text-3xl font-bold text-gray-800 text-center mb-8">Your Perfect Strings!</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500 hover:shadow-xl transition-all duration-300">
+                      <h3 className="text-xl font-semibold text-blue-600 mb-2">Primary Recommendation</h3>
+                      <p className="text-lg font-bold text-gray-800">{recommendations.primary.brand} {recommendations.primary.name}</p>
+                      <p className="text-gray-600 mb-2"><strong>Gauge:</strong> {recommendations.primary.gauge}</p>
+                      <p className="text-gray-600 mb-2"><strong>Why it’s right for you:</strong> {recommendations.primary.description}</p>
+                      <p className="text-gray-600"><strong>Racket Compatibility:</strong> {recommendations.primary.racketFit}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500 hover:shadow-xl transition-all duration-300">
+                      <h3 className="text-xl font-semibold text-green-600 mb-2">Secondary Recommendation</h3>
+                      <p className="text-lg font-bold text-gray-800">{recommendations.secondary.brand} {recommendations.secondary.name}</p>
+                      <p className="text-gray-600 mb-2"><strong>Gauge:</strong> {recommendations.secondary.gauge}</p>
+                      <p className="text-gray-600 mb-2"><strong>Why it’s right for you:</strong> {recommendations.secondary.description}</p>
+                      <p className="text-gray-600"><strong>Racket Compatibility:</strong> {recommendations.secondary.racketFit}</p>
+                    </div>
+                  </div>
+                  <div className="text-center mt-8">
+                    <button
+                      onClick={() => {
+                        setStep(0);
+                        setFormData({ racket: "", dislikedStrings: [], level: "", tension: "", priority: "" });
+                        setRecommendations(null);
+                        setShowIntro(true);
+                      }}
+                      className="px-8 py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-all duration-200"
+                    >
+                      Start Over
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      );
+    };
+
+    // Custom animation styles
+    const style = document.createElement("style");
+    style.textContent = `
+      .font-poppins {
+        font-family: 'Poppins', sans-serif;
+      }
+      .animate-fade-in {
+        animation: fadeIn 0.5s ease-in;
+      }
+      .animate-float {
+        animation: float 3s ease-in-out infinite;
+      }
+      .animate-pulse {
+        animation: pulse 2s infinite;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+      }
+      @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Render the app
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<QuizApp />);
+  </script>
+</body>
+</html>
